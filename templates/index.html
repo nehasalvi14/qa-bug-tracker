@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>QA Core Nexus - Enterprise Bug & Test Management System</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            bgDark: '#080B12',
+            bgSidebar: '#0D1422',
+            bgCard: '#111827',
+            primaryBlue: '#2563EB',
+            highlightBlue: '#38BDF8',
+            softWhite: '#F1F5F9',
+            slateText: '#94A3B8',
+            accentGreen: '#22C55E',
+            accentAmber: '#F59E0B',
+            accentRed: '#EF4444'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background-color: #080B12; color: #F1F5F9; font-family: system-ui, -apple-system, sans-serif; }
+    .bg-sidebar { background-color: #0D1422; }
+    .bg-card { background-color: #111827; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #080B12; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+  </style>
+</head>
+<body class="h-screen flex overflow-hidden">
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed top-5 right-5 z-50 space-y-3 pointer-events-none"></div>
+
+  <!-- Auth Screen Overlay -->
+  <div id="authOverlay" class="fixed inset-0 bg-[#080B12] z-40 flex items-center justify-center p-4">
+    <div class="bg-[#111827] border border-slate-800 w-full max-w-md rounded-2xl p-8 shadow-2xl">
+      <div class="text-center mb-6">
+        <div class="inline-flex p-3 bg-blue-600/20 text-blue-500 rounded-xl mb-3 border border-blue-500/30">
+          <i data-lucide="shield-check" class="w-8 h-8"></i>
+        </div>
+        <h2 id="authTitle" class="text-2xl font-bold text-white">Sign In to QA Core</h2>
+        <p class="text-xs text-slate-400 mt-1">Enterprise Software Quality Portal</p>
+      </div>
+
+      <form id="authForm" onsubmit="handleAuthSubmit(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Username / Email</label>
+          <input id="authInputUser" type="text" required class="w-full bg-[#080B12] border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-white focus:outline-none focus:border-blue-500" placeholder="admin or admin@qanexus.com">
+        </div>
+
+        <div id="registerEmailField" class="hidden">
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Email Address</label>
+          <input id="authInputEmail" type="email" class="w-full bg-[#080B12] border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-white focus:outline-none focus:border-blue-500" placeholder="user@qanexus.com">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Password</label>
+          <div class="relative">
+            <input id="authInputPassword" type="password" required class="w-full bg-[#080B12] border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-white focus:outline-none focus:border-blue-500 pr-10" placeholder="••••••••">
+            <button type="button" onclick="togglePasswordVisibility()" class="absolute right-3 top-2.5 text-slate-400 hover:text-white">
+              <i data-lucide="eye" id="eyeIcon" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <div id="registerRoleField" class="hidden">
+          <label class="block text-xs font-semibold text-slate-400 mb-1">User Role</label>
+          <select id="authInputRole" class="w-full bg-[#080B12] border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+            <option value="QA Tester">QA Tester</option>
+            <option value="Developer">Developer</option>
+            <option value="QA Head">QA Head</option>
+            <option value="Client">Client</option>
+          </select>
+        </div>
+
+        <div class="flex justify-between items-center text-xs">
+          <button type="button" onclick="openForgotModal()" class="text-blue-400 hover:underline">Forgot Password?</button>
+          <button type="button" onclick="toggleAuthMode()" id="authToggleBtn" class="text-slate-400 hover:text-white">Need an account? Register</button>
+        </div>
+
+        <button type="submit" id="authSubmitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg text-sm shadow-lg shadow-blue-600/20">Sign In</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- App Wrapper -->
+  <div class="w-full flex h-full">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-sidebar border-r border-slate-800 flex flex-col justify-between p-4 flex-shrink-0">
+      <div>
+        <div class="flex items-center gap-3 px-2 mb-8">
+          <div class="p-2 bg-blue-600 rounded-xl text-white">
+            <i data-lucide="shield-check" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h1 class="font-bold text-base text-white tracking-wide">QA Nexus</h1>
+            <p class="text-[11px] text-slate-400">Python Flask Engine</p>
+          </div>
+        </div>
+
+        <nav class="space-y-1">
+          <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 text-sm font-medium rounded-lg bg-blue-600 text-white">
+            <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard
+          </button>
+          <button onclick="switchTab('projects')" id="nav-projects" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 text-sm font-medium rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white">
+            <i data-lucide="folder-kanban" class="w-4 h-4"></i> Projects
+          </button>
+          <button onclick="switchTab('bugs')" id="nav-bugs" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 text-sm font-medium rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white">
+            <i data-lucide="bug" class="w-4 h-4"></i> Bug Management
+          </button>
+          <button onclick="switchTab('testcases')" id="nav-testcases" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 text-sm font-medium rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white">
+            <i data-lucide="file-check-2" class="w-4 h-4"></i> Test Cases
+          </button>
+          <!-- NEW NAVIGATION TAB FOR TEST PLAN & SPRINT DISCUSSION -->
+          <button onclick="switchTab('testplans')" id="nav-testplans" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 text-sm font-medium rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white">
+            <i data-lucide="messages-square" class="w-4 h-4"></i> Test Plan & Discussion
+          </button>
+          <button onclick="switchTab('team')" id="nav-team" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 text-sm font-medium rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white">
+            <i data-lucide="users" class="w-4 h-4"></i> Team & Hierarchy
+          </button>
+          <button onclick="switchTab('reports')" id="nav-reports" class="nav-item w-full flex items-center gap-3 px-3.5 py-2.5 text-sm font-medium rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white">
+            <i data-lucide="bar-chart-3" class="w-4 h-4"></i> Reports & Metrics
+          </button>
+        </nav>
+      </div>
+
+      <div class="p-3 bg-card rounded-xl border border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold text-xs" id="userAvatar">QA</div>
+          <div>
+            <p class="text-xs font-semibold text-white" id="currentUserName">Nishit Dubey</p>
+            <p class="text-[10px] text-slate-400" id="currentUserRole">QA Head</p>
+          </div>
+        </div>
+        <button onclick="logout()" class="text-slate-400 hover:text-red-400 p-1" title="Logout">
+          <i data-lucide="log-out" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-y-auto p-8 bg-[#080B12]">
+      
+      <!-- DASHBOARD TAB -->
+      <section id="tab-dashboard" class="space-y-8">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 class="text-2xl font-bold text-white">System Overview</h2>
+            <p class="text-xs text-slate-400">Real-time Software Quality Metrics & Analytics</p>
+          </div>
+          <span class="px-3 py-1 bg-green-500/10 text-green-400 border border-green-500/20 rounded-full text-xs font-medium flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> Flask API Live
+          </span>
+        </div>
+
+        <!-- Metric Stat Panels -->
+        <div class="grid grid-cols-4 gap-4">
+          <div onclick="switchTab('projects')" class="p-5 bg-card border border-slate-800 hover:border-blue-500/50 transition cursor-pointer rounded-xl">
+            <div class="flex justify-between items-center text-slate-400 mb-2">
+              <span class="text-xs font-medium">Total Projects</span>
+              <i data-lucide="folder-kanban" class="w-4 h-4 text-blue-400"></i>
+            </div>
+            <h3 id="dashProjects" class="text-2xl font-bold text-white">0</h3>
+          </div>
+          <div onclick="switchTab('bugs')" class="p-5 bg-card border border-slate-800 hover:border-blue-500/50 transition cursor-pointer rounded-xl">
+            <div class="flex justify-between items-center text-slate-400 mb-2">
+              <span class="text-xs font-medium">Total Bugs</span>
+              <i data-lucide="bug" class="w-4 h-4 text-amber-400"></i>
+            </div>
+            <h3 id="dashTotalBugs" class="text-2xl font-bold text-white">0</h3>
+          </div>
+          <div onclick="switchTab('bugs')" class="p-5 bg-card border border-slate-800 hover:border-blue-500/50 transition cursor-pointer rounded-xl">
+            <div class="flex justify-between items-center text-slate-400 mb-2">
+              <span class="text-xs font-medium">Critical Bugs</span>
+              <i data-lucide="alert-octagon" class="w-4 h-4 text-red-400"></i>
+            </div>
+            <h3 id="dashCriticalBugs" class="text-2xl font-bold text-red-400">0</h3>
+          </div>
+          <div onclick="switchTab('bugs')" class="p-5 bg-card border border-slate-800 hover:border-blue-500/50 transition cursor-pointer rounded-xl">
+            <div class="flex justify-between items-center text-slate-400 mb-2">
+              <span class="text-xs font-medium">Pending Bugs</span>
+              <i data-lucide="clock" class="w-4 h-4 text-amber-400"></i>
+            </div>
+            <h3 id="dashPendingBugs" class="text-2xl font-bold text-amber-400">0</h3>
+          </div>
+          <div onclick="switchTab('bugs')" class="p-5 bg-card border border-slate-800 hover:border-blue-500/50 transition cursor-pointer rounded-xl">
+            <div class="flex justify-between items-center text-slate-400 mb-2">
+              <span class="text-xs font-medium">Resolved Bugs</span>
+              <i data-lucide="check-circle-2" class="w-4 h-4 text-green-400"></i>
+            </div>
+            <h3 id="dashResolvedBugs" class="text-2xl font-bold text-green-400">0</h3>
+          </div>
+          <div onclick="switchTab('testcases')" class="p-5 bg-card border border-slate-800 hover:border-blue-500/50 transition cursor-pointer rounded-xl">
+            <div class="flex justify-between items-center text-slate-400 mb-2">
+              <span class="text-xs font-medium">Total Test Cases</span>
+              <i data-lucide="file-check-2" class="w-4 h-4 text-sky-400"></i>
+            </div>
+            <h3 id="dashTestCases" class="text-2xl font-bold text-white">0</h3>
+          </div>
+          <div onclick="switchTab('reports')" class="col-span-2 p-5 bg-card border border-slate-800 hover:border-blue-500/50 transition cursor-pointer rounded-xl flex flex-col justify-between">
+            <div class="flex justify-between items-center text-slate-400">
+              <span class="text-xs font-medium">Overall QA Progress</span>
+              <i data-lucide="trending-up" class="w-4 h-4 text-blue-400"></i>
+            </div>
+            <div class="flex items-end justify-between mt-2">
+              <h3 id="dashProgressPct" class="text-2xl font-bold text-white">0%</h3>
+              <span class="text-xs text-slate-400">Resolution Rate</span>
+            </div>
+            <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden mt-3">
+              <div id="dashProgressBar" class="bg-blue-600 h-full w-0 transition-all duration-500"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive Charts -->
+        <div class="grid grid-cols-2 gap-6">
+          <div class="p-6 bg-card border border-slate-800 rounded-xl">
+            <h4 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+              <i data-lucide="pie-chart" class="w-4 h-4 text-blue-400"></i> Severity-wise Bug Summary
+            </h4>
+            <div class="h-64 flex items-center justify-center">
+              <canvas id="severityChart"></canvas>
+            </div>
+          </div>
+          <div class="p-6 bg-card border border-slate-800 rounded-xl">
+            <h4 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+              <i data-lucide="bar-chart-2" class="w-4 h-4 text-blue-400"></i> Open vs Resolved Defects Overview
+            </h4>
+            <div class="h-64 flex items-center justify-center">
+              <canvas id="statusChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PROJECTS TAB -->
+      <section id="tab-projects" class="hidden space-y-6">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 class="text-2xl font-bold text-white">Project Management</h2>
+            <p class="text-xs text-slate-400">Manage software projects, team assignments, and outcomes</p>
+          </div>
+          <button onclick="openModal('projectModal')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-4 py-2.5 rounded-lg flex items-center gap-2">
+            <i data-lucide="plus" class="w-4 h-4"></i> Add Project
+          </button>
+        </div>
+
+        <div id="projectsGrid" class="grid grid-cols-2 gap-6"></div>
+      </section>
+
+      <!-- BUGS TAB -->
+      <section id="tab-bugs" class="hidden space-y-6">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 class="text-2xl font-bold text-white">Bug Management</h2>
+            <p class="text-xs text-slate-400">Report, assign, and track defects across software modules</p>
+          </div>
+          <button onclick="openModal('bugModal')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-4 py-2.5 rounded-lg flex items-center gap-2">
+            <i data-lucide="plus" class="w-4 h-4"></i> Log New Bug
+          </button>
+        </div>
+
+        <div id="bugsList" class="space-y-4"></div>
+      </section>
+
+      <!-- TEST CASES TAB -->
+      <section id="tab-testcases" class="hidden space-y-6">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 class="text-2xl font-bold text-white">Test Cases</h2>
+            <p class="text-xs text-slate-400">Create, execute, and monitor automated and manual test suites</p>
+          </div>
+          <button onclick="openModal('testCaseModal')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-4 py-2.5 rounded-lg flex items-center gap-2">
+            <i data-lucide="plus" class="w-4 h-4"></i> Create Test Case
+          </button>
+        </div>
+
+        <div id="testCasesList" class="space-y-4"></div>
+      </section>
+
+      <!-- NEW SECTION: TEST PLAN & SPRINT DISCUSSION TAB -->
+      <section id="tab-testplans" class="hidden space-y-6">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 class="text-2xl font-bold text-white">Test Plan & Sprint Discussion</h2>
+            <p class="text-xs text-slate-400">Define test strategies, release scopes, and discuss sprint goals in real-time</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-6">
+          <!-- Left Column: Test Plan Definition Box -->
+          <div class="col-span-2 bg-card border border-slate-800 rounded-xl p-6 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+              <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+                <i data-lucide="file-text" class="w-4 h-4 text-blue-400"></i> Active Sprint Test Plan
+              </h3>
+              <span class="text-xs px-2.5 py-1 bg-blue-600/20 text-blue-400 rounded-md border border-blue-500/30 font-medium">Sprint 12 (Active)</span>
+            </div>
+
+            <div class="space-y-4">
+              <div>
+                <label class="block text-xs font-medium text-slate-400 mb-1">Test Strategy & Scope</label>
+                <textarea id="tpScope" rows="4" class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-3 text-xs text-white focus:border-blue-500 focus:outline-none" placeholder="- Focus on Auth Module regression&#10;- Mobile API load testing&#10;- Payment Gateway integration validation"></textarea>
+              </div>
+
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1">Entry Criteria</label>
+                  <textarea id="tpEntry" rows="3" class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-3 text-xs text-white focus:border-blue-500 focus:outline-none" placeholder="Build deployed to QA server, 100% unit tests passed"></textarea>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1">Exit Criteria</label>
+                  <textarea id="tpExit" rows="3" class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-3 text-xs text-white focus:border-blue-500 focus:outline-none" placeholder="Zero Critical defects, >95% test cases executed successfully"></textarea>
+                </div>
+              </div>
+
+              <div class="flex justify-end pt-2">
+                <button onclick="saveTestPlan()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-4 py-2 rounded-lg flex items-center gap-2">
+                  <i data-lucide="save" class="w-3.5 h-3.5"></i> Save Test Plan
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Sprint Discussion Box / Activity Feed -->
+          <div class="bg-card border border-slate-800 rounded-xl p-6 flex flex-col justify-between h-[520px]">
+            <div>
+              <div class="flex justify-between items-center border-b border-slate-800 pb-3 mb-4">
+                <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+                  <i data-lucide="messages-square" class="w-4 h-4 text-emerald-400"></i> Sprint Discussion Box
+                </h3>
+                <span class="text-[10px] text-slate-400">Live Team Thread</span>
+              </div>
+
+              <!-- Message Stream -->
+              <div id="discussionStream" class="space-y-3 overflow-y-auto max-h-[340px] pr-1">
+                <div class="p-3 bg-[#080B12] border border-slate-800 rounded-lg space-y-1">
+                  <div class="flex justify-between text-[11px]">
+                    <span class="font-bold text-blue-400">Nishit Dubey (QA Head)</span>
+                    <span class="text-slate-500">10:15 AM</span>
+                  </div>
+                  <p class="text-xs text-slate-300">Please review login error handling test plan before releasing to staging.</p>
+                </div>
+
+                <div class="p-3 bg-[#080B12] border border-slate-800 rounded-lg space-y-1">
+                  <div class="flex justify-between text-[11px]">
+                    <span class="font-bold text-purple-400">Priya Nair (Developer)</span>
+                    <span class="text-slate-500">10:22 AM</span>
+                  </div>
+                  <p class="text-xs text-slate-300">Fix for Bug #TP-1 pushed to staging branch. Ready for re-testing.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Comment Input Box -->
+            <div class="mt-4 pt-3 border-t border-slate-800 flex gap-2">
+              <input id="sprintCommentInput" type="text" placeholder="Add sprint discussion comment..." class="flex-1 bg-[#080B12] border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500">
+              <button onclick="postSprintComment()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-center">
+                <i data-lucide="send" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TEAM TAB -->
+      <section id="tab-team" class="hidden space-y-6">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 class="text-2xl font-bold text-white">Team & Hierarchy</h2>
+            <p class="text-xs text-slate-400">Manage QA heads, testers, developers, and clients</p>
+          </div>
+          <button onclick="openModal('teamModal')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-4 py-2.5 rounded-lg flex items-center gap-2">
+            <i data-lucide="user-plus" class="w-4 h-4"></i> Add Team Member
+          </button>
+        </div>
+
+        <!-- Visual Hierarchy Tree -->
+        <div class="bg-card border border-slate-800 p-6 rounded-xl text-center space-y-4">
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-widest">Organizational Hierarchy</p>
+          <div class="flex justify-center items-center gap-8 text-xs font-semibold">
+            <span class="px-4 py-2 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg">QA Head</span>
+            <span class="text-slate-500">→</span>
+            <span class="px-4 py-2 bg-sky-600/20 text-sky-400 border border-sky-500/30 rounded-lg">QA Tester / Developer</span>
+            <span class="text-slate-500">→</span>
+            <span class="px-4 py-2 bg-purple-600/20 text-purple-400 border border-purple-500/30 rounded-lg">Client</span>
+          </div>
+        </div>
+
+        <div id="teamGrid" class="grid grid-cols-3 gap-6"></div>
+      </section>
+
+      <!-- REPORTS TAB -->
+      <section id="tab-reports" class="hidden space-y-6">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 class="text-2xl font-bold text-white">Reports & Quality Metrics</h2>
+            <p class="text-xs text-slate-400">Detailed quality audits and defect resolution metrics</p>
+          </div>
+          <button onclick="openModal('reportModal')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-4 py-2.5 rounded-lg flex items-center gap-2">
+            <i data-lucide="plus" class="w-4 h-4"></i> Add Bug Report
+          </button>
+        </div>
+
+        <div id="reportsList" class="space-y-4"></div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- MODALS -->
+
+  <!-- Bug Modal (Updated with Sprint Discussion Field) -->
+  <div id="bugModal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+    <div class="bg-card border border-slate-800 w-full max-w-xl rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+      <h3 class="text-lg font-bold text-white">Log Defect / Bug</h3>
+      <form onsubmit="createBug(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Bug Title</label>
+          <input id="bugTitle" type="text" required class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Project</label>
+            <input id="bugProject" type="text" required class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Severity</label>
+            <select id="bugSeverity" class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white">
+              <option value="Critical">Critical</option>
+              <option value="High">High</option>
+              <option value="Medium" selected>Medium</option>
+              <option value="Low">Low</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Description</label>
+          <textarea id="bugDesc" class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white h-16"></textarea>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Steps to Reproduce</label>
+          <textarea id="bugSteps" class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white h-16"></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Expected Result</label>
+            <textarea id="bugExpected" required class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white h-16"></textarea>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Actual Result</label>
+            <textarea id="bugActual" required class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white h-16"></textarea>
+          </div>
+        </div>
+        <!-- NEW FIELD IN BUG MODAL -->
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Sprint Discussion Notes / Test Plan Link</label>
+          <input id="bugSprintNotes" type="text" placeholder="e.g. Discussed in Sprint 12 meeting / Refers to Test Plan TC-10" class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Assigned Tester</label>
+            <input id="bugTester" type="text" class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Assigned Developer</label>
+            <input id="bugDev" type="text" class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white">
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('bugModal')" class="px-4 py-2 bg-slate-800 text-slate-300 text-xs rounded-lg">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg">Log Bug</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Project Modal -->
+  <div id="projectModal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+    <div class="bg-card border border-slate-800 w-full max-w-lg rounded-xl p-6 space-y-4">
+      <h3 class="text-lg font-bold text-white">Add New Project</h3>
+      <form onsubmit="createProject(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Project Name</label>
+          <input id="projName" type="text" required class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white">
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Status</label>
+          <select id="projStatus" class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white">
+            <option value="Ongoing">Ongoing</option>
+            <option value="Resumed">Resumed</option>
+            <option value="Done">Done</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Progress (%)</label>
+          <input id="projProgress" type="number" min="0" max="100" value="0" class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white">
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Team Details</label>
+          <input id="projTeam" type="text" placeholder="e.g. Nishit Dubey, Priya Nair" class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white">
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Expected Outcome</label>
+          <textarea id="projOutcome" required class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white h-20" placeholder="Brief project goal/outcome..."></textarea>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('projectModal')" class="px-4 py-2 bg-slate-800 text-slate-300 text-xs rounded-lg">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg">Create Project</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Test Case Modal -->
+  <div id="testCaseModal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+    <div class="bg-card border border-slate-800 w-full max-w-xl rounded-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+      <h3 class="text-lg font-bold text-white">Create Test Case</h3>
+      <form onsubmit="createTestCase(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Test Case Title</label>
+          <input id="tcTitle" type="text" required class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Module</label>
+            <input id="tcModule" type="text" required class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Priority</label>
+            <select id="tcPriority" class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white">
+              <option value="High">High</option>
+              <option value="Medium" selected>Medium</option>
+              <option value="Low">Low</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Preconditions</label>
+          <textarea id="tcPreconditions" class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white h-16"></textarea>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Test Steps</label>
+          <textarea id="tcSteps" class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white h-16"></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Expected Result</label>
+            <textarea id="tcExpected" required class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white h-16"></textarea>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Actual Result</label>
+            <textarea id="tcActual" required class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white h-16"></textarea>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Assigned Tester</label>
+          <input id="tcTester" type="text" class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white">
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('testCaseModal')" class="px-4 py-2 bg-slate-800 text-slate-300 text-xs rounded-lg">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg">Save Test Case</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Team Member Modal -->
+  <div id="teamModal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+    <div class="bg-card border border-slate-800 w-full max-w-lg rounded-xl p-6 space-y-4">
+      <h3 class="text-lg font-bold text-white">Add Team Member</h3>
+      <form onsubmit="createTeamMember(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Member Name</label>
+          <input id="tmName" type="text" required class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Role</label>
+            <select id="tmRole" class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white">
+              <option value="QA Head">QA Head</option>
+              <option value="QA Tester" selected>QA Tester</option>
+              <option value="Developer">Developer</option>
+              <option value="Client">Client</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Status</label>
+            <select id="tmStatus" class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white">
+              <option value="Active">Active</option>
+              <option value="Away">Away</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Department</label>
+          <input id="tmDept" type="text" required placeholder="e.g. Quality Engineering" class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white">
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Assigned Projects</label>
+          <input id="tmProjects" type="text" class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white">
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('teamModal')" class="px-4 py-2 bg-slate-800 text-slate-300 text-xs rounded-lg">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg">Add Member</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Report Modal -->
+  <div id="reportModal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+    <div class="bg-card border border-slate-800 w-full max-w-lg rounded-xl p-6 space-y-4">
+      <h3 class="text-lg font-bold text-white">Add Bug Report Entry</h3>
+      <form onsubmit="createReport(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Report Title</label>
+          <input id="repTitle" type="text" required class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white">
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Project</label>
+          <input id="repProject" type="text" required class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white">
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Detailed Audit Summary</label>
+          <textarea id="repSummary" required class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white h-24"></textarea>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('reportModal')" class="px-4 py-2 bg-slate-800 text-slate-300 text-xs rounded-lg">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg">Save Report</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Forgot Password Modal -->
+  <div id="forgotModal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+    <div class="bg-card border border-slate-800 w-full max-w-md rounded-xl p-6 space-y-4">
+      <h3 class="text-lg font-bold text-white">Reset Password</h3>
+      <p class="text-xs text-slate-400">Enter your email address to receive password reset instructions.</p>
+      <input id="forgotEmail" type="email" placeholder="user@qanexus.com" class="w-full bg-[#080B12] border border-slate-700 rounded-lg p-2.5 text-sm text-white">
+      <div class="flex justify-end gap-2">
+        <button onclick="closeModal('forgotModal')" class="px-4 py-2 bg-slate-800 text-slate-300 text-xs rounded-lg">Cancel</button>
+        <button onclick="submitForgot()" class="px-4 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg">Send Link</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN SCRIPT -->
+  <script>
+    let currentUser = null;
+    let isRegisterMode = false;
+    let severityChartInstance = null;
+    let statusChartInstance = null;
+
+    // Initialize Lucide Icons
+    lucide.createIcons();
+
+    // Tab Switcher Helper
+    function switchTab(tabName) {
+      const tabs = ['dashboard', 'projects', 'bugs', 'testcases', 'testplans', 'team', 'reports'];
+      tabs.forEach(t => {
+        const sec = document.getElementById(`tab-${t}`);
+        const nav = document.getElementById(`nav-${t}`);
+        if (sec) sec.classList.add('hidden');
+        if (nav) {
+          nav.classList.remove('bg-blue-600', 'text-white');
+          nav.classList.add('text-slate-400');
+        }
+      });
+
+      const activeSec = document.getElementById(`tab-${tabName}`);
+      const activeNav = document.getElementById(`nav-${tabName}`);
+      if (activeSec) activeSec.classList.remove('hidden');
+      if (activeNav) {
+        activeNav.classList.remove('text-slate-400');
+        activeNav.classList.add('bg-blue-600', 'text-white');
+      }
+    }
+
+    // Modal Control Helpers
+    function openModal(id) { document.getElementById(id)?.classList.remove('hidden'); }
+    function closeModal(id) { document.getElementById(id)?.classList.add('hidden'); }
+
+    // Toast Notification System
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `p-3.5 rounded-xl shadow-lg border text-xs font-medium flex items-center justify-between gap-3 pointer-events-auto transition-all transform duration-300 opacity-0 translate-y-2 ${
+        type === 'success' ? 'bg-emerald-950/90 border-emerald-800 text-emerald-200' :
+        type === 'error' ? 'bg-red-950/90 border-red-800 text-red-200' :
+        'bg-slate-900 border-slate-800 text-slate-200'
+      }`;
+      toast.innerHTML = `<span>${message}</span><button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-white">&times;</button>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.classList.remove('opacity-0', 'translate-y-2');
+      }, 10);
+      setTimeout(() => {
+        toast.classList.add('opacity-0');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    // Sprint Discussion Box Functions
+    function postSprintComment() {
+      const input = document.getElementById('sprintCommentInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const stream = document.getElementById('discussionStream');
+      const msgDiv = document.createElement('div');
+      msgDiv.className = "p-3 bg-[#080B12] border border-slate-800 rounded-lg space-y-1";
+      
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      msgDiv.innerHTML = `
+        <div class="flex justify-between text-[11px]">
+          <span class="font-bold text-blue-400">${currentUser || 'Nishit Dubey'}</span>
+          <span class="text-slate-500">${timeStr}</span>
+        </div>
+        <p class="text-xs text-slate-300">${text}</p>
+      `;
+      
+      stream.appendChild(msgDiv);
+      stream.scrollTop = stream.scrollHeight;
+      input.value = '';
+      showToast('Sprint comment posted!', 'success');
+    }
+
+    function saveTestPlan() {
+      showToast('Test plan guidelines and scope updated successfully!', 'success');
+    }
+  </script>
+</body>
+</html>
