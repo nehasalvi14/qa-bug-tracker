@@ -216,14 +216,16 @@ def register():
 
 @app.route('/api/auth/login', methods=['POST'])
 def login():
-    payload = request.json
+    # Dono JSON aur Form requests ko safely handle karega
+    payload = request.get_json(silent=True) or request.form
     login_id = payload.get('username')
     password = payload.get('password')
+    
     for u in db['users']:
         if (u['username'] == login_id or u['email'] == login_id) and u['password'] == password:
             return jsonify({"message": "Login successful!", "user": u}), 200
+            
     return jsonify({"error": "Invalid credentials!"}), 401
-
 # --- PROJECTS ---
 @app.route('/api/projects', methods=['GET', 'POST'])
 def handle_projects():
