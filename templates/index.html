@@ -808,9 +808,16 @@
     <script>
     let currentUser = null;
     let isRegisterMode = false;
-    let severityChartInstance = null;
-    let statusChartInstance = null;
-
+    severityChartInstance = null;
+    statusChartInstance = null;
+function toggleAuthMode() {
+    const loginForm = document.getElementById('loginForm');
+    const signupForm = document.getElementById('signupForm');
+    if (loginForm && signupForm) {
+        loginForm.classList.toggle('hidden');
+        signupForm.classList.toggle('hidden');
+    }
+}
     // ==========================================
     // INITIALIZATION
     // ==========================================
