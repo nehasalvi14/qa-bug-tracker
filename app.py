@@ -10,6 +10,29 @@ from flask_cors import CORS
 # =========================================================
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+import json
+
+DB_FILE = os.path.join(BASE_DIR, 'database.json')
+
+def load_db():
+    if os.path.exists(DB_FILE):
+        try:
+            with open(DB_FILE, 'r') as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {
+        "projects": [],
+        "test_cases": [],
+        "bugs": [],
+        "activity_logs": []
+    }
+
+def save_db():
+    with open(DB_FILE, 'w') as f:
+        json.dump(db, f, indent=4)
+
+db = load_db()
 
 app = Flask(
     __name__,
@@ -1436,6 +1459,14 @@ def get_activity_logs():
 # =========================================================
 # DASHBOARD STATISTICS
 # =========================================================
+@app.route("/api/stats", methods=["GET"])
+@app.route("/api/dashboard", methods=["GET"])
+def dashboard():
+    projects = db["projects"]
+    bugs = db["bugs"]
+    test_cases = db["test_cases"]
+    
+    # ... baki ka code wahi rahega jo pehle se hai ...
 
 @app.route("/api/dashboard", methods=["GET"])
 def dashboard():
