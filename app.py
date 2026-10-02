@@ -3,7 +3,7 @@ import json
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 
-app = Flask(__name__, template_folder='.')
+app = Flask(__name__, template_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates'))
 CORS(app)
 
 # In-Memory Database initialized with complete default seed data + Sprints & Activity Logs
