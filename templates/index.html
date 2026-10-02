@@ -1574,6 +1574,51 @@ function postBugCommentModal() {
         }
     }).catch(err => console.error("Error posting comment:", err));
 }
+let severityChartInstance = null;
+    let statusChartInstance = null;
+
+    function renderDashboardCharts(data) {
+        const severityCtx = document.getElementById('severityChart');
+        if (severityCtx && window.Chart) {
+            if (severityChartInstance) severityChartInstance.destroy();
+            severityChartInstance = new Chart(severityCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Critical', 'High', 'Medium', 'Low'],
+                    datasets: [{
+                        data: [
+                            data.critical_bugs || 0, 
+                            data.high_bugs || 0, 
+                            data.medium_bugs || 0, 
+                            data.low_bugs || 0
+                        ],
+                        backgroundColor: ['#ef4444', '#f97316', '#eab308', '#3b82f6']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        const statusCtx = document.getElementById('statusChart');
+        if (statusCtx && window.Chart) {
+            if (statusChartInstance) statusChartInstance.destroy();
+            statusChartInstance = new Chart(statusCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Pending / Open', 'Resolved'],
+                    datasets: [{
+                        label: 'Defects',
+                        data: [
+                            data.pending_bugs || 0, 
+                            data.resolved_bugs || 0
+                        ],
+                        backgroundColor: ['#3b82f6', '#10b981']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+    }
 
 // 4. Close Modal helper
 function closeModal(modalId) {
