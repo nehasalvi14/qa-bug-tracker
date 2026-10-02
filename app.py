@@ -1460,13 +1460,27 @@ def get_activity_logs():
 # DASHBOARD STATISTICS
 # =========================================================
 @app.route("/api/stats", methods=["GET"])
-@app.route("/api/dashboard", methods=["GET"])
-def dashboard():
+def get_stats_data():
     projects = db["projects"]
     bugs = db["bugs"]
     test_cases = db["test_cases"]
     
-    # ... baki ka code wahi rahega jo pehle se hai ...
+    resolved_bugs = sum(1 for b in bugs if b.get("status") == "Resolved")
+    pending_bugs = len(bugs) - resolved_bugs
+    
+    return jsonify({
+        "total_projects": len(projects),
+        "total_bugs": len(bugs),
+        "critical_bugs": sum(1 for b in bugs if b.get("severity") == "Critical"),
+        "high_bugs": sum(1 for b in bugs if b.get("severity") == "High"),
+        "medium_bugs": sum(1 for b in bugs if b.get("severity") == "Medium"),
+        "low_bugs": sum(1 for b in bugs if b.get("severity") == "Low"),
+        "pending_bugs": pending_bugs,
+        "resolved_bugs": resolved_bugs,
+        "total_test_cases": len(test_cases),
+        "passed_test_cases": sum(1 for t in test_cases if t.get("status") == "Passed"),
+        "overall_progress": round((resolved_bugs / len(bugs) * 100) if bugs else 0, 1)
+    })
 
 @app.route("/api/dashboard", methods=["GET"])
 def dashboard():
