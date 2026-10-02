@@ -658,90 +658,688 @@
     </div>
   </div>
 
-  <!-- MAIN SCRIPT -->
-  <script>
+    <!-- MAIN SCRIPT -->
+    <script>
     let currentUser = null;
     let isRegisterMode = false;
     let severityChartInstance = null;
     let statusChartInstance = null;
 
-    // Initialize Lucide Icons
-    lucide.createIcons();
+    // ==========================================
+    // INITIALIZATION
+    // ==========================================
 
-    // Tab Switcher Helper
-    function switchTab(tabName) {
-      const tabs = ['dashboard', 'projects', 'bugs', 'testcases', 'testplans', 'team', 'reports'];
-      tabs.forEach(t => {
-        const sec = document.getElementById(`tab-${t}`);
-        const nav = document.getElementById(`nav-${t}`);
-        if (sec) sec.classList.add('hidden');
-        if (nav) {
-          nav.classList.remove('bg-blue-600', 'text-white');
-          nav.classList.add('text-slate-400');
+        document.addEventListener("DOMContentLoaded", function () {
+        lucide.createIcons();
+
+        const savedUser = sessionStorage.getItem("qaNexusUser");
+
+        if (savedUser) {
+            try {
+                currentUser = JSON.parse(savedUser);
+                showApplication();
+                loadDashboardData();
+            } catch (error) {
+                sessionStorage.removeItem("qaNexusUser");
+                showLogin();
+            }
+        } else {
+            showLogin();
         }
-      });
+    });
 
-      const activeSec = document.getElementById(`tab-${tabName}`);
-      const activeNav = document.getElementById(`nav-${tabName}`);
-      if (activeSec) activeSec.classList.remove('hidden');
-      if (activeNav) {
-        activeNav.classList.remove('text-slate-400');
-        activeNav.classList.add('bg-blue-600', 'text-white');
-      }
+
+    // ==========================================
+    // AUTH MODE - LOGIN / REGISTER
+    // ==========================================
+
+    function toggleAuthMode() {
+        isRegisterMode = !isRegisterMode;
+
+        const title = document.getElementById("authTitle");
+        const submitBtn = document.getElementById("authSubmitBtn");
+        const toggleBtn = document.getElementById("authToggleBtn");
+
+        const emailField = document.getElementById("registerEmailField");
+        const roleField = document.getElementById("registerRoleField");
+
+        const userInput = document.getElementById("authInputUser");
+
+        if (isRegisterMode) {
+            title.textContent = "Create QA Nexus Account";
+            submitBtn.textContent = "Create Account";
+            toggleBtn.textContent = "Already have an account? Sign In";
+
+            emailField.classList.remove("hidden");
+            roleField.classList.remove("hidden");
+
+            userInput.placeholder = "Choose username";
+
+            document.getElementById("authInputEmail").required = true;
+            document.getElementById("authInputRole").required = true;
+
+        } else {
+            title.textContent = "Sign In to QA Core";
+            submitBtn.textContent = "Sign In";
+            toggleBtn.textContent = "Need an account? Register";
+
+            emailField.classList.add("hidden");
+            roleField.classList.add("hidden");
+
+            userInput.placeholder = "admin or admin@qanexus.com";
+
+            document.getElementById("authInputEmail").required = false;
+            document.getElementById("authInputRole").required = false;
+        }
     }
 
-    // Modal Control Helpers
-    function openModal(id) { document.getElementById(id)?.classList.remove('hidden'); }
-    function closeModal(id) { document.getElementById(id)?.classList.add('hidden'); }
 
-    // Toast Notification System
-    function showToast(message, type = 'info') {
-      const container = document.getElementById('toastContainer');
-      const toast = document.createElement('div');
-      toast.className = `p-3.5 rounded-xl shadow-lg border text-xs font-medium flex items-center justify-between gap-3 pointer-events-auto transition-all transform duration-300 opacity-0 translate-y-2 ${
-        type === 'success' ? 'bg-emerald-950/90 border-emerald-800 text-emerald-200' :
-        type === 'error' ? 'bg-red-950/90 border-red-800 text-red-200' :
-        'bg-slate-900 border-slate-800 text-slate-200'
-      }`;
-      toast.innerHTML = `<span>${message}</span><button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-white">&times;</button>`;
-      container.appendChild(toast);
-      setTimeout(() => {
-        toast.classList.remove('opacity-0', 'translate-y-2');
-      }, 10);
-      setTimeout(() => {
-        toast.classList.add('opacity-0');
-        setTimeout(() => toast.remove(), 300);
-      }, 4000);
+    // ==========================================
+    // LOGIN / REGISTER
+    // ==========================================
+
+    async function handleAuthSubmit(event) {
+        event.preventDefault();
+
+        const username = document.getElementById("authInputUser").value.trim();
+        const password = document.getElementById("authInputPassword").value;
+
+        if (!username || !password) {
+            showToast("Please enter username and password.", "error");
+            return;
+        }
+
+        const submitBtn = document.getElementById("authSubmitBtn");
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = isRegisterMode
+            ? "Creating Account..."
+            : "Signing In...";
+
+        try {
+
+            // ==========================
+            // REGISTER
+            // ==========================
+
+            if (isRegisterMode) {
+
+                const email =
+                    document.getElementById("authInputEmail").value.trim();
+
+                const role =
+                    document.getElementById("authInputRole").value;
+
+                if (!email) {
+                    showToast("Please enter your email address.", "error");
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = "Create Account";
+                    return;
+                }
+
+                const response = await fetch("/api/auth/register", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        email: email,
+                        password: password,
+                        role: role
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || "Registration failed.");
+                }
+
+                showToast(
+                    "Account created successfully! Please sign in.",
+                    "success"
+                );
+
+                // Clear password
+                document.getElementById("authInputPassword").value = "";
+
+                // Switch back to login
+                toggleAuthMode();
+
+                document.getElementById("authInputUser").value = username;
+
+            }
+
+            // ==========================
+            // LOGIN
+            // ==========================
+
+            else {
+
+                const response = await fetch("/api/auth/login", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || "Invalid credentials.");
+                }
+
+                currentUser = data.user;
+
+                sessionStorage.setItem(
+                    "qaNexusUser",
+                    JSON.stringify(currentUser)
+                );
+
+                showToast(
+                    "Login successful! Welcome to QA Nexus.",
+                    "success"
+                );
+
+                showApplication();
+
+                loadDashboardData();
+            }
+
+        } catch (error) {
+
+            console.error("Authentication error:", error);
+
+            showToast(
+                error.message || "Something went wrong.",
+                "error"
+            );
+
+        } finally {
+
+            submitBtn.disabled = false;
+
+            submitBtn.textContent = isRegisterMode
+                ? "Create Account"
+                : "Sign In";
+        }
     }
 
-    // Sprint Discussion Box Functions
+
+    // ==========================================
+    // SHOW APPLICATION AFTER LOGIN
+    // ==========================================
+
+    function showApplication() {
+
+        const authOverlay = document.getElementById("authOverlay");
+
+        if (authOverlay) {
+            authOverlay.classList.add("hidden");
+        }
+
+        updateCurrentUser();
+
+        switchTab("dashboard");
+    }
+
+
+    function showLogin() {
+
+        const authOverlay = document.getElementById("authOverlay");
+
+        if (authOverlay) {
+            authOverlay.classList.remove("hidden");
+        }
+    }
+
+
+    // ==========================================
+    // UPDATE USER PROFILE
+    // ==========================================
+
+    function updateCurrentUser() {
+
+        if (!currentUser) return;
+
+        const nameElement =
+            document.getElementById("currentUserName");
+
+        const roleElement =
+            document.getElementById("currentUserRole");
+
+        const avatarElement =
+            document.getElementById("userAvatar");
+
+        if (nameElement) {
+            nameElement.textContent =
+                currentUser.username || currentUser.name || "User";
+        }
+
+        if (roleElement) {
+            roleElement.textContent =
+                currentUser.role || "QA Tester";
+        }
+
+        if (avatarElement) {
+
+            const name =
+                currentUser.username ||
+                currentUser.name ||
+                "QA";
+
+            avatarElement.textContent =
+                name.substring(0, 2).toUpperCase();
+        }
+    }
+
+
+    // ==========================================
+    // PASSWORD SHOW / HIDE
+    // ==========================================
+
+    function togglePasswordVisibility() {
+
+        const password =
+            document.getElementById("authInputPassword");
+
+        const eyeIcon =
+            document.getElementById("eyeIcon");
+
+        if (password.type === "password") {
+
+            password.type = "text";
+
+            eyeIcon.setAttribute("data-lucide", "eye-off");
+
+        } else {
+
+            password.type = "password";
+
+            eyeIcon.setAttribute("data-lucide", "eye");
+        }
+
+        lucide.createIcons();
+    }
+
+
+    // ==========================================
+    // LOGOUT
+    // ==========================================
+
+    function logout() {
+
+        currentUser = null;
+
+        sessionStorage.removeItem("qaNexusUser");
+
+        document.getElementById("authForm").reset();
+
+        isRegisterMode = false;
+
+        // If currently register mode, return to login mode
+        if (
+            !document
+                .getElementById("registerEmailField")
+                .classList.contains("hidden")
+        ) {
+            toggleAuthMode();
+        }
+
+        showLogin();
+
+        showToast("You have been logged out.", "info");
+    }
+
+
+    // ==========================================
+    // FORGOT PASSWORD
+    // ==========================================
+
+    function openForgotModal() {
+        openModal("forgotModal");
+    }
+
+
+    function submitForgot() {
+
+        const email =
+            document.getElementById("forgotEmail").value.trim();
+
+        if (!email) {
+            showToast("Please enter your email address.", "error");
+            return;
+        }
+
+        closeModal("forgotModal");
+
+        showToast(
+            "Password reset instructions have been sent.",
+            "success"
+        );
+
+        document.getElementById("forgotEmail").value = "";
+    }
+
+
+    // ==========================================
+    // TAB SWITCHER
+    // ==========================================
+
+    function switchTab(tabName) {
+
+        const tabs = [
+            "dashboard",
+            "projects",
+            "bugs",
+            "testcases",
+            "testplans",
+            "team",
+            "reports"
+        ];
+
+        tabs.forEach(function (t) {
+
+            const sec =
+                document.getElementById(`tab-${t}`);
+
+            const nav =
+                document.getElementById(`nav-${t}`);
+
+            if (sec) {
+                sec.classList.add("hidden");
+            }
+
+            if (nav) {
+
+                nav.classList.remove(
+                    "bg-blue-600",
+                    "text-white"
+                );
+
+                nav.classList.add("text-slate-400");
+            }
+        });
+
+        const activeSec =
+            document.getElementById(`tab-${tabName}`);
+
+        const activeNav =
+            document.getElementById(`nav-${tabName}`);
+
+        if (activeSec) {
+            activeSec.classList.remove("hidden");
+        }
+
+        if (activeNav) {
+
+            activeNav.classList.remove(
+                "text-slate-400"
+            );
+
+            activeNav.classList.add(
+                "bg-blue-600",
+                "text-white"
+            );
+        }
+
+        if (tabName === "dashboard") {
+            loadDashboardData();
+        }
+
+        if (tabName === "projects") {
+            loadProjects();
+        }
+
+        if (tabName === "bugs") {
+            loadBugs();
+        }
+
+        if (tabName === "testcases") {
+            loadTestCases();
+        }
+
+        if (tabName === "team") {
+            loadTeam();
+        }
+
+        if (tabName === "reports") {
+            loadReports();
+        }
+    }
+
+
+    // ==========================================
+    // MODALS
+    // ==========================================
+
+    function openModal(id) {
+
+        const modal = document.getElementById(id);
+
+        if (modal) {
+            modal.classList.remove("hidden");
+        }
+    }
+
+
+    function closeModal(id) {
+
+        const modal = document.getElementById(id);
+
+        if (modal) {
+            modal.classList.add("hidden");
+        }
+    }
+
+
+    // ==========================================
+    // TOAST
+    // ==========================================
+
+    function showToast(message, type = "info") {
+
+        const container =
+            document.getElementById("toastContainer");
+
+        if (!container) return;
+
+        const toast =
+            document.createElement("div");
+
+        toast.className =
+            `p-3.5 rounded-xl shadow-lg border text-xs font-medium flex items-center justify-between gap-3 pointer-events-auto transition-all transform duration-300 ${
+
+                type === "success"
+                    ? "bg-emerald-950/90 border-emerald-800 text-emerald-200"
+
+                    : type === "error"
+                    ? "bg-red-950/90 border-red-800 text-red-200"
+
+                    : "bg-slate-900 border-slate-800 text-slate-200"
+            }`;
+
+        toast.innerHTML = `
+            <span>${message}</span>
+            <button
+                onclick="this.parentElement.remove()"
+                class="text-slate-400 hover:text-white">
+                &times;
+            </button>
+        `;
+
+        container.appendChild(toast);
+
+        setTimeout(function () {
+            toast.classList.add("opacity-0");
+
+            setTimeout(function () {
+                toast.remove();
+            }, 300);
+
+        }, 4000);
+    }
+
+
+    // ==========================================
+    // DASHBOARD DATA
+    // ==========================================
+
+    async function loadDashboardData() {
+
+        try {
+
+            const [
+                projectsResponse,
+                bugsResponse,
+                testCasesResponse
+            ] = await Promise.all([
+
+                fetch("/api/projects"),
+                fetch("/api/bugs"),
+                fetch("/api/test-cases")
+            ]);
+
+            const projects =
+                await projectsResponse.json();
+
+            const bugs =
+                await bugsResponse.json();
+
+            const testCases =
+                await testCasesResponse.json();
+
+
+            document.getElementById("dashProjects")
+                .textContent = projects.length;
+
+            document.getElementById("dashTotalBugs")
+                .textContent = bugs.length;
+
+            document.getElementById("dashCriticalBugs")
+                .textContent =
+                bugs.filter(b => b.severity === "Critical").length;
+
+            document.getElementById("dashPendingBugs")
+                .textContent =
+                bugs.filter(b =>
+                    b.status !== "Closed" &&
+                    b.status !== "Resolved"
+                ).length;
+
+            document.getElementById("dashResolvedBugs")
+                .textContent =
+                bugs.filter(b =>
+                    b.status === "Closed" ||
+                    b.status === "Resolved"
+                ).length;
+
+            document.getElementById("dashTestCases")
+                .textContent = testCases.length;
+
+            const resolved =
+                bugs.filter(b =>
+                    b.status === "Closed" ||
+                    b.status === "Resolved"
+                ).length;
+
+            const progress =
+                bugs.length
+                    ? Math.round((resolved / bugs.length) * 100)
+                    : 0;
+
+            document.getElementById("dashProgressPct")
+                .textContent = `${progress}%`;
+
+            document.getElementById("dashProgressBar")
+                .style.width = `${progress}%`;
+
+        } catch (error) {
+
+            console.error(
+                "Dashboard loading error:",
+                error
+            );
+        }
+    }
+
+
+    // ==========================================
+    // SPRINT DISCUSSION
+    // ==========================================
+
     function postSprintComment() {
-      const input = document.getElementById('sprintCommentInput');
-      const text = input.value.trim();
-      if (!text) return;
 
-      const stream = document.getElementById('discussionStream');
-      const msgDiv = document.createElement('div');
-      msgDiv.className = "p-3 bg-[#080B12] border border-slate-800 rounded-lg space-y-1";
-      
-      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      msgDiv.innerHTML = `
-        <div class="flex justify-between text-[11px]">
-          <span class="font-bold text-blue-400">${currentUser || 'Nishit Dubey'}</span>
-          <span class="text-slate-500">${timeStr}</span>
-        </div>
-        <p class="text-xs text-slate-300">${text}</p>
-      `;
-      
-      stream.appendChild(msgDiv);
-      stream.scrollTop = stream.scrollHeight;
-      input.value = '';
-      showToast('Sprint comment posted!', 'success');
+        const input =
+            document.getElementById("sprintCommentInput");
+
+        const text =
+            input.value.trim();
+
+        if (!text) return;
+
+        const stream =
+            document.getElementById("discussionStream");
+
+        const msgDiv =
+            document.createElement("div");
+
+        msgDiv.className =
+            "p-3 bg-[#080B12] border border-slate-800 rounded-lg space-y-1";
+
+        const timeStr =
+            new Date().toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit"
+            });
+
+        const username =
+            currentUser
+                ? currentUser.username
+                : "QA Team";
+
+        msgDiv.innerHTML = `
+            <div class="flex justify-between text-[11px]">
+                <span class="font-bold text-blue-400">
+                    ${username}
+                </span>
+
+                <span class="text-slate-500">
+                    ${timeStr}
+                </span>
+            </div>
+
+            <p class="text-xs text-slate-300">
+                ${text}
+            </p>
+        `;
+
+        stream.appendChild(msgDiv);
+
+        stream.scrollTop =
+            stream.scrollHeight;
+
+        input.value = "";
+
+        showToast(
+            "Sprint comment posted!",
+            "success"
+        );
     }
+
 
     function saveTestPlan() {
-      showToast('Test plan guidelines and scope updated successfully!', 'success');
+
+        showToast(
+            "Test plan guidelines and scope updated successfully!",
+            "success"
+        );
     }
-  </script>
+</script>
 </body>
 </html>
